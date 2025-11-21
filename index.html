@@ -1,138 +1,83 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Чат</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Чат на GitHub Pages</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: #f5f5f5;
-    }
-    .chat-container {
-      max-width: 600px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      display: flex;
-      flex-direction: column;
-      height: 80vh;
-    }
-    .chat-messages {
-      flex: 1;
-      padding: 15px;
-      overflow-y: auto;
-      background: #fafafa;
-      border-bottom: 1px solid #eee;
-    }
-    .message {
-      margin-bottom: 10px;
-      padding: 8px 12px;
-      border-radius: 12px;
-      max-width: 80%;
-      word-wrap: break-word;
-    }
-    .user {
-      background: #DCF8C6;
-      align-self: flex-end;
-      margin-left: auto;
-    }
-    .other {
-      background: #E5E5EA;
-    }
-    .input-area {
-      display: flex;
-      padding: 10px;
-      background: white;
-    }
-    #message-input {
-      flex: 1;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 20px;
-      outline: none;
-    }
-    #send-btn {
-      margin-left: 10px;
-      padding: 10px 16px;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 20px;
-      cursor: pointer;
-    }
-    #send-btn:hover {
-      background: #45a049;
-    }
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 0 10px; }
+    #messages { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; }
+    #messageInput { width: 70%; padding: 8px; }
+    #sendBtn { padding: 8px 16px; }
+    .message { margin-bottom: 8px; }
+    .username { font-weight: bold; color: #2c3e50; }
   </style>
 </head>
 <body>
-  <div class="chat-container">
-    <div class="chat-messages" id="chat-messages">
-      <!-- Сообщения появятся здесь -->
-    </div>
-    <div class="input-area">
-      <input type="text" id="message-input" placeholder="Введите сообщение..." autocomplete="off">
-      <button id="send-btn">➤</button>
-    </div>
-  </div>
+  <h1>Чат</h1>
+  <div id="messages"></div>
+  <input type="text" id="username" placeholder="Ваше имя" maxlength="20">
+  <br><br>
+  <input type="text" id="messageInput" placeholder="Сообщение">
+  <button id="sendBtn">Отправить</button>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
   <script>
-    const chatMessages = document.getElementById('chat-messages');
-    const messageInput = document.getElementById('message-input');
-    const sendBtn = document.getElementById('send-btn');
+    // 🔑 Замените на ваши данные из Firebase Console → Project Settings → SDK setup
+    const firebaseConfig = {
+      apiKey: "ВАШ_API_KEY",
+      authDomain: "ВАШ_PROJECT.firebaseapp.com",
+      databaseURL: "https://ВАШ_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "ВАШ_PROJECT",
+      storageBucket: "ВАШ_PROJECT.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abcdef123456789"
+    };
 
-    // Загружаем историю из localStorage
-    let messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+    // Инициализация Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const messagesRef = db.ref("messages");
 
-    function renderMessages() {
-      chatMessages.innerHTML = '';
-      messages.forEach(msg => {
-        const div = document.createElement('div');
-        div.classList.add('message', msg.sender);
-        div.textContent = msg.text;
-        chatMessages.appendChild(div);
-      });
-      chatMessages.scrollTop = chatMessages.scrollHeight; // прокрутка вниз
-    }
+    // Элементы DOM
+    const messagesDiv = document.getElementById("messages");
+    const messageInput = document.getElementById("messageInput");
+    const usernameInput = document.getElementById("username");
+    const sendBtn = document.getElementById("sendBtn");
 
-    function addMessage(text, sender = 'user') {
-      messages.push({ text, sender });
-      localStorage.setItem('chatMessages', JSON.stringify(messages));
-      renderMessages();
-    }
+    // Получение сообщений в реальном времени
+    messagesRef.limitToLast(50).on("child_added", (snapshot) => {
+      const msg = snapshot.val();
+      const div = document.createElement("div");
+      div.className = "message";
+      div.innerHTML = `<span class="username">${msg.user}:</span> ${msg.text}`;
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
 
-    sendBtn.addEventListener('click', () => sendMessage());
-    messageInput.addEventListener('keypress', e => {
-      if (e.key === 'Enter') sendMessage();
+    // Отправка сообщения
+    sendBtn.addEventListener("click", sendMessage);
+    messageInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendMessage();
     });
 
     function sendMessage() {
+      const user = usernameInput.value.trim();
       const text = messageInput.value.trim();
-      if (text) {
-        addMessage(text, 'user');
-        messageInput.value = '';
-
-        // Имитация ответа от другого пользователя через 1 секунду (опционально)
-        setTimeout(() => {
-          const replies = [
-            'Привет! 😊',
-            'Интересно!',
-            'Ага, понял.',
-            'Расскажи подробнее.',
-            'Хорошо, запомню.'
-          ];
-          const randomReply = replies[Math.floor(Math.random() * replies.length)];
-          addMessage(randomReply, 'other');
-        }, 1000);
+      if (!user || !text) {
+        alert("Введите имя и сообщение!");
+        return;
       }
+      messagesRef.push({
+        user: user,
+        text: text,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      });
+      messageInput.value = "";
     }
-
-    // Инициализация
-    renderMessages();
   </script>
 </body>
 </html>
